@@ -45,8 +45,11 @@ def _passed(value) -> bool:
 # CI mode
 # ---------------------------------------------------------------------------
 
-def _check_itk_error(data: dict) -> int | None:
+def _check_itk_error(data: dict | list | None) -> int | None:
     """Return 1 and print error if ITK service returned an error response, else None."""
+    if not isinstance(data, dict):
+        print(f"ERROR: ITK response is not a JSON object. Type: {type(data).__name__}", file=sys.stderr)
+        return 1
     if "detail" in data:
         print(f"ERROR: ITK service returned an error: {data['detail']}", file=sys.stderr)
         return 1
