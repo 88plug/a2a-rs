@@ -3,6 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 set -ex
 
+# Always run from the directory containing this script so relative paths work
+# regardless of where the caller invokes it from.
+cd "$(dirname "$0")"
+
 export ITK_LOG_LEVEL="${ITK_LOG_LEVEL:-INFO}"
 RESULT=1
 
@@ -11,7 +15,11 @@ cleanup() {
   echo "Cleaning up artifacts..."
   docker stop itk-service > /dev/null 2>&1 || true
   docker rm itk-service > /dev/null 2>&1 || true
-  docker rmi itk_service > /dev/null 2>&1 || true
+  # Preserve the image so layer caching speeds up subsequent local runs.
+  # Re-export ITK_REMOVE_IMAGE=1 to force removal (e.g. in CI cleanup jobs).
+  if [ "${ITK_REMOVE_IMAGE:-0}" = "1" ]; then
+    docker rmi itk_service > /dev/null 2>&1 || true
+  fi
   rm -rf a2a-itk > /dev/null 2>&1 || true
   echo "Done. Final exit code: $RESULT"
 }
