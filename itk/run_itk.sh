@@ -95,81 +95,14 @@ RESPONSE=$(curl -s -X POST http://127.0.0.1:8000/run \
 if [ "${ITK_NIGHTLY_RUN^^}" = "TRUE" ]; then
   echo "Nightly run detected. Saving raw results and processing history..."
   echo "$RESPONSE" > raw_results.json
-
-  # Fetch existing rolling history; start fresh if the release asset doesn't exist yet.
-  HISTORY_URL="https://github.com/a2aproject/a2a-rs/releases/download/nightly-metrics/itk_rust.json"
-  HISTORY=$(curl -sSLf "$HISTORY_URL" 2>/dev/null || echo "[]")
-
-  TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")
-
-  # Build the new run entry, append it to the rolling history, and prune to 50 entries.
-  # Mirrors the logic in a2a-itk/scripts/process_results.py using jq only.
-  jq -n \
-    --arg ts        "$TIMESTAMP" \
-    --arg sha       "${GITHUB_SHA:-local-dev}" \
-    --arg run_id    "${GITHUB_RUN_ID:-0}" \
-    --slurpfile raw       raw_results.json \
-    --slurpfile scenarios "$SCENARIO_FILE" \
-    --argjson history     "$HISTORY" \
-    '
-    ($raw[0])            as $data       |
-    ($scenarios[0].tests) as $base_tests |
-    ($data.results // {}) as $results   |
-
-    # Compile per-scenario records, skipping any result key with no matching base.
-    [$results | to_entries[] |
-      . as $entry |
-      ($entry.key | split("-sub-")[0]) as $parent |
-      ([$base_tests[] | select(.name == $parent)][0]) as $base |
-      if $base == null then empty else
-        (($entry.value | type) == "boolean") as $is_bool |
-        (if $is_bool then $entry.value          else ($entry.value.passed // false) end) as $passed |
-        (if $is_bool then $base.sdks            else ($entry.value.sdks   // $base.sdks)  end) as $sdks  |
-        (if $is_bool then $base.edges           else ($entry.value.edges  // $base.edges) end) as $edges |
-        {
-          name:      $entry.key,
-          sdks:      $sdks,
-          edges:     $edges,
-          protocols: $base.protocols,
-          behavior:  $base.behavior,
-          traversal: ($base.traversal // "euler"),
-          passed:    $passed
-        }
-        + (if $base | has("streaming")     then {streaming:     $base.streaming}     else {} end)
-        + (if $base | has("build_subtests") then {build_subtests: $base.build_subtests} else {} end)
-      end
-    ] as $compiled |
-
-    ($history + [{
-      timestamp:     $ts,
-      commit_sha:    $sha,
-      github_run_id: $run_id,
-      all_passed:    ($data.all_passed // false),
-      scenarios:     $compiled
-    }])[-50:]
-    ' > itk_rust.json
+  python3 process_results.py nightly \
+    --scenarios  "$SCENARIO_FILE" \
+    --output     itk_rust.json \
+    --history-url https://github.com/a2aproject/a2a-rs/releases/download/nightly-metrics/itk_rust.json
   RESULT=$?
 else
-  echo "--------------------------------------------------------"
-  echo "ITK TEST RESULTS:"
-  echo "--------------------------------------------------------"
-  echo "$RESPONSE" | jq -r '
-    .results | to_entries[] |
-    .key + ": " + (
-      if   (.value | type) == "boolean" then (if .value          then "PASSED" else "FAILED" end)
-      else                                   (if .value.passed // false then "PASSED" else "FAILED" end)
-      end
-    )
-  '
-  ALL_PASSED=$(echo "$RESPONSE" | jq -r '.all_passed // false')
-  echo "--------------------------------------------------------"
-  if [ "$ALL_PASSED" = "true" ]; then
-    echo "OVERALL STATUS: PASSED"
-    RESULT=0
-  else
-    echo "OVERALL STATUS: FAILED"
-    RESULT=1
-  fi
+  echo "$RESPONSE" | python3 process_results.py ci
+  RESULT=$?
 fi
 set -e
 
