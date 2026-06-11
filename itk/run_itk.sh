@@ -5,7 +5,7 @@ set -ex
 
 # Always run from the directory containing this script so relative paths work
 # regardless of where the caller invokes it from.
-cd "$(dirname "$0")"
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 export ITK_LOG_LEVEL="${ITK_LOG_LEVEL:-INFO}"
 RESULT=1
