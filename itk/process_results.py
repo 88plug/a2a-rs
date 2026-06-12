@@ -45,12 +45,29 @@ def _passed(value) -> bool:
 # CI mode
 # ---------------------------------------------------------------------------
 
+def _check_itk_error(data: dict | list | None) -> int | None:
+    """Return 1 and print error if ITK service returned an error response, else None."""
+    if not isinstance(data, dict):
+        print(f"ERROR: ITK response is not a JSON object. Type: {type(data).__name__}", file=sys.stderr)
+        return 1
+    if "detail" in data:
+        print(f"ERROR: ITK service returned an error: {data['detail']}", file=sys.stderr)
+        return 1
+    if "results" not in data:
+        print(f"ERROR: ITK response missing 'results' field. Response keys: {list(data.keys())}", file=sys.stderr)
+        return 1
+    return None
+
+
 def cmd_ci(args) -> int:
     try:
         data = json.load(sys.stdin)
     except json.JSONDecodeError as exc:
         print(f"ERROR: could not parse response JSON: {exc}", file=sys.stderr)
         return 1
+
+    if (err := _check_itk_error(data)) is not None:
+        return err
 
     results = data.get("results", {})
     all_passed = data.get("all_passed", False)
@@ -119,6 +136,9 @@ def _compile_scenarios(raw_results: dict, base_tests: list) -> list:
 
 def cmd_nightly(args) -> int:
     raw = _load_json(RAW_RESULTS_FILE)
+    if (err := _check_itk_error(raw)) is not None:
+        return err
+
     scenarios_doc = _load_json(args.scenarios)
     history = _fetch_history(args.history_url)
 
