@@ -7,12 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.3.0](https://github.com/a2aproject/a2a-rs/compare/a2a-lf-v0.2.4...a2a-lf-v0.3.0) - 2026-05-11
+### Added
 
-### Fixed
-
-- use TaskPushNotificationConfig v1.0.0 ([#66](https://github.com/a2aproject/a2a-rs/pull/66))
-- align error code mappings with upstream spec fix (A2A#1627) ([#58](https://github.com/a2aproject/a2a-rs/pull/58))
+- Add `TRANSPORT_PROTOCOL_WEBSOCKET` constant for the WebSocket custom
+  protocol binding (used by the new `a2a-websocket` crate).
 
 ## [0.2.4](https://github.com/a2aproject/a2a-rs/compare/agntcy-a2a-v0.2.3...agntcy-a2a-v0.2.4) - 2026-04-05
 
