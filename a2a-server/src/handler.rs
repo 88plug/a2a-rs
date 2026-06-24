@@ -539,6 +539,14 @@ impl DefaultRequestHandler {
         req: SendMessageRequest,
         include_task_snapshot_in_context: bool,
     ) -> Result<(TaskId, BoxStream<'static, Result<StreamResponse, A2AError>>), A2AError> {
+        // Reject messages with no content (e.g. a body whose `message` field is
+        // absent or carries no parts) rather than executing on an empty prompt.
+        if req.message.parts.is_empty() {
+            return Err(A2AError::invalid_params(
+                "message must contain at least one part",
+            ));
+        }
+
         let (task, stored_task, context_id) = self.prepare_task_for_execution(&req).await?;
         let task_id = task.id.clone();
         self.save_request_push_config(&task_id, &req).await?;
@@ -1087,6 +1095,20 @@ mod tests {
             }
             _ => panic!("expected Task response"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_send_message_rejects_empty_message() {
+        let handler = make_handler();
+        let params = ServiceParams::new();
+        let req = SendMessageRequest {
+            message: Message::new(Role::User, vec![]),
+            configuration: None,
+            metadata: None,
+            tenant: None,
+        };
+        let err = handler.send_message(&params, req).await.unwrap_err();
+        assert_eq!(err.code, a2a::error_code::INVALID_PARAMS);
     }
 
     #[tokio::test]
