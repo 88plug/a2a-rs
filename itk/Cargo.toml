@@ -5,7 +5,7 @@ name = "itk-rust-current-agent"
 version = "0.1.0"
 edition = "2024"
 publish = false
-rust-version = "1.85.0"
+rust-version = "1.91"
 
 [[bin]]
 name = "itk-rust-current-agent"
@@ -34,3 +34,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]
 prost-build = "0.14"
+
+# The bin source (a2a-itk/agents/rust/v10/src/main.rs) is the upstream a2aproject/a2a-itk
+# reference agent, cloned at runtime and gitignored. Bumping rust-version to 1.91 enables
+# clippy's let-chain collapse suggestion on its nested `if let` blocks; we don't own that
+# file, so allow the style lint here rather than forking upstream code.
+[lints.clippy]
+collapsible_if = "allow"
